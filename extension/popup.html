@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memoriq</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="popup.mjs"></script>
+</head>
+<body class="popup">
+  <header class="header">
+    <div><p class="eyebrow">MEMORIQ</p><h1>タブに、ひと休み。</h1></div>
+    <button id="settings" class="quiet" type="button">設定</button>
+  </header>
+  <main>
+    <section class="summary" aria-label="タブの状態">
+      <div><strong id="tab-count">—</strong><span>開いているタブ</span></div>
+      <div><strong id="discarded-count">—</strong><span>休止中</span></div>
+      <div><strong id="automatic">OFF</strong><span>自動休止</span></div>
+    </section>
+    <section class="section">
+      <div class="section-heading"><h2>今回の休止候補</h2><button id="refresh" type="button" class="quiet">一覧を更新</button></div>
+      <p id="policy-summary" class="muted">許可したサイトの未使用タブだけを表示します。</p>
+      <div id="candidates" class="candidate-list"><p class="empty">読み込み中です。</p></div>
+      <button id="discard" type="button" class="primary full" disabled>選択したタブを休止する</button>
+      <p class="hint">一度に最大3件。休止したタブを選ぶと再読み込みします。</p>
+    </section>
+    <aside class="notice">入力途中のフォームや、ミュート中の会議などは確実に検出できません。再読み込みしても問題ないサイトだけを設定で許可してください。</aside>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section class="section native-section">
+      <div class="section-heading"><h2>Mac全体のメモリ</h2><button id="snapshot" type="button" class="quiet">計測する</button></div>
+      <div id="native-data"><p class="muted">Macアプリ連携は任意です。「計測する」を押したときだけ取得します。</p></div>
+    </section>
+    <footer>この拡張は外部サーバーにデータを送信しません。</footer>
+  </main>
+</body>
+</html>
