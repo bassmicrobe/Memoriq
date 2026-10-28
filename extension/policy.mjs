@@ -51,14 +51,15 @@ function webUrl(value) {
   }
 }
 
-export function evaluateTab(tab, settings, now) {
+export function evaluateTab(tab, settings, now, { allowProtected = false } = {}) {
   const deny = (reason) => ({ eligible: false, reason });
   if (!record(tab) || !integer(tab.id)) return deny('unknown');
   if (tab.active !== false || tab.highlighted === true) return deny('active');
   if (tab.pinned !== false) return deny('pinned');
   if (tab.audible === true) return deny('audible');
   if (tab.discarded !== false) return deny('discarded');
-  if (tab.autoDiscardable !== true) return deny('protected');
+  if (typeof tab.autoDiscardable !== 'boolean') return deny('unknown');
+  if (!tab.autoDiscardable && !allowProtected) return deny('protected');
   if (tab.status !== 'complete' || tab.pendingUrl) return deny('loading');
   if (tab.incognito === true) return deny('incognito');
   const url = webUrl(tab.url);
@@ -71,10 +72,10 @@ export function evaluateTab(tab, settings, now) {
   return { eligible: true, reason: null, idleMinutes, hostname: url.hostname };
 }
 
-export function selectCandidates(tabs, settings, now) {
+export function selectCandidates(tabs, settings, now, options = {}) {
   if (!Array.isArray(tabs)) throw new Error('タブ一覧を取得できませんでした。');
   return tabs
-    .map((tab) => ({ tab, decision: evaluateTab(tab, settings, now) }))
+    .map((tab) => ({ tab, decision: evaluateTab(tab, settings, now, options) }))
     .filter(({ decision }) => decision.eligible)
     .toSorted((a, b) => a.tab.lastAccessed - b.tab.lastAccessed)
     .slice(0, MAX_BATCH_SIZE)
@@ -91,7 +92,12 @@ function candidate(value) {
 
 export function validateRequest(value) {
   if (!record(value)) throw new Error('操作の形式が正しくありません。');
-  if (['preview', 'get-settings', 'snapshot'].includes(value.action)) {
+  if (value.action === 'preview') {
+    knownKeys(value, ['action', 'allowProtected']);
+    if (value.allowProtected !== undefined && typeof value.allowProtected !== 'boolean') throw new Error('手動休止の指定が正しくありません。');
+    return { action: value.action, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }) };
+  }
+  if (['get-settings', 'snapshot'].includes(value.action)) {
     knownKeys(value, ['action']);
     return { action: value.action };
   }
@@ -100,11 +106,12 @@ export function validateRequest(value) {
     return { action: value.action, settings: validateSettings(value.settings) };
   }
   if (value.action === 'discard') {
-    knownKeys(value, ['action', 'candidates']);
+    knownKeys(value, ['action', 'candidates', 'allowProtected']);
+    if (value.allowProtected !== undefined && typeof value.allowProtected !== 'boolean') throw new Error('手動休止の指定が正しくありません。');
     if (!Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > MAX_BATCH_SIZE) throw new Error('一度に休止できるのは1〜3件です。');
     const candidates = value.candidates.map(candidate);
     if (new Set(candidates.map(({ id }) => id)).size !== candidates.length) throw new Error('休止候補が重複しています。');
-    return { action: value.action, candidates };
+    return { action: value.action, candidates, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }) };
   }
   throw new Error('この操作には対応していません。');
 }

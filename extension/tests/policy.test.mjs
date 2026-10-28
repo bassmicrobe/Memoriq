@@ -48,6 +48,32 @@ test('candidate order is oldest first, bounded to three, without reordering inpu
   assert.deepEqual(input.map(({ id }) => id), [1, 2, 3, 4]);
 });
 
+test('explicit manual inclusion relaxes only known automatic-discard protection', () => {
+  const manual = { allowProtected: true };
+  assert.equal(evaluateTab(tab({ autoDiscardable: false }), settings, now, manual).eligible, true);
+  assert.equal(selectCandidates([tab({ autoDiscardable: false })], settings, now, manual).length, 1);
+  for (const change of [{ active: true }, { audible: true }, { pinned: true }, { highlighted: true }, { autoDiscardable: undefined }, { lastAccessed: now }, { url: 'https://other.test/' }, { incognito: true }]) {
+    assert.equal(evaluateTab(tab({ autoDiscardable: false, ...change }), settings, now, manual).eligible, false);
+  }
+  assert.deepEqual(validateRequest({ action: 'preview', allowProtected: true }), { action: 'preview', allowProtected: true });
+  assert.throws(() => validateRequest({ action: 'preview', allowProtected: 'yes' }));
+  assert.throws(() => validateRequest({ action: 'snapshot', allowProtected: true }));
+});
+
+test('manual protection inclusion cannot be used by automatic work', async () => {
+  for (const automatic of [false, true]) {
+    let discarded = false;
+    const protectedTab = tab({ autoDiscardable: false });
+    const result = await discardCandidates([{ id: 7, url: protectedTab.url, lastAccessed: protectedTab.lastAccessed }], {
+      getSettings: async () => ({ ...settings, automatic: true }),
+      getTab: async () => ({ ...protectedTab, discarded }),
+      discardTab: async () => { discarded = true; }, now: () => now,
+    }, { automatic, allowProtected: true });
+    assert.equal(result.discarded.length, automatic ? 0 : 1);
+    assert.equal(discarded, !automatic);
+  }
+});
+
 test('message boundary rejects excessive IDs and unknown actions', () => {
   assert.deepEqual(validateRequest({ action: 'preview' }), { action: 'preview' });
   assert.throws(() => validateRequest({ action: 'discard', candidates: [1, 2, 3, 4] }));
@@ -85,6 +111,32 @@ test('discard uses fresh state, runs sequentially, and confirms actual discarded
   const result = await discardCandidates(candidates, { getSettings: async () => settings, getTab: async (id) => { events.push(`get:${id}`); return tab({ id, discarded: discarded.has(id) }); }, discardTab: async (id) => { events.push(`discard:${id}`); discarded.add(id); }, now: () => now });
   assert.deepEqual(events, ['get:1', 'discard:1', 'get:1', 'get:2', 'discard:2', 'get:2']);
   assert.deepEqual(result.discarded, [1, 2]);
+});
+
+test('discard verifies the returned replacement tab ID instead of looking up the removed ID', async () => {
+  let calls = [];
+  const result = await discardCandidates([{ id: 7, url: tab().url, lastAccessed: tab().lastAccessed }], {
+    getSettings: async () => settings,
+    getTab: async (id) => {
+      calls = [...calls, id];
+      if (id === 7 && calls.length === 1) return tab();
+      if (id === 9) return tab({ id: 9, discarded: true });
+      throw new Error('No tab with id');
+    },
+    discardTab: async () => tab({ id: 9, discarded: true }), now: () => now,
+  });
+  assert.deepEqual(calls, [7, 9]);
+  assert.deepEqual(result.discarded, [9]);
+  assert.deepEqual(result.failed, []);
+});
+
+test('a replacement tab with a different URL is not reported as a confirmed discard', async () => {
+  const result = await discardCandidates([{ id: 7, url: tab().url, lastAccessed: tab().lastAccessed }], {
+    getSettings: async () => settings, getTab: async () => tab(),
+    discardTab: async () => tab({ id: 9, discarded: true, url: 'https://other.test/' }), now: () => now,
+  });
+  assert.deepEqual(result.discarded, []);
+  assert.equal(result.skipped.length, 1);
 });
 
 test('API failures are reported and do not fabricate successful memory savings', async () => {

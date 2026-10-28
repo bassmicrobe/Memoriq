@@ -103,6 +103,17 @@ try {
   await optionsPage.screenshot({ path: join(results, 'options.png'), fullPage: true });
   await record('settings-saved-via-ui', { settings });
 
+  for (const width of [320, 390]) {
+    await optionsPage.setViewportSize({ width, height: 850 });
+    assert.equal(await optionsPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `Settings overflow at ${width}px`);
+  }
+  await optionsPage.screenshot({ path: join(results, 'options-mobile.png'), fullPage: true });
+  await optionsPage.locator('#idle').focus();
+  await optionsPage.keyboard.press('Tab');
+  assert.equal(await optionsPage.locator('#allowed').evaluate((input) => document.activeElement === input && getComputedStyle(input).outlineStyle === 'solid'), true, 'Keyboard focus must remain visible');
+  await optionsPage.setViewportSize({ width: 1000, height: 850 });
+  await record('responsive-settings-and-keyboard-focus');
+
   const initial = await api(optionsPage, 'preview');
   assert.equal(initial.candidates.length, 0);
   const tabs = await optionsPage.evaluate(() => chrome.tabs.query({}));

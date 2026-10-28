@@ -103,6 +103,43 @@ test('manual preview has no side effect and discard reports verified persisted o
   assert.deepEqual(updated.candidates, []);
 });
 
+test('preview explains why tabs are protected without exposing their URLs or changing them', async () => {
+  const f = fixture({ settings: configuration });
+  const api = { ...f.api, tabs: { ...f.api.tabs, query: async () => [
+    { ...readyTab, autoDiscardable: false },
+    { ...readyTab, id: 5, title: 'Recent', lastAccessed: now - 60_000 },
+    { ...readyTab, id: 6 },
+  ] } };
+  const view = await createController(api, () => now).handle({ action: 'preview' }, sender);
+  assert.deepEqual(view.blockedTabs, [
+    { id: 4, title: 'Example', reason: 'protected' },
+    { id: 5, title: 'Recent', reason: 'recent' },
+  ]);
+  assert.equal(view.candidates.length, 1);
+  assert.equal(f.calls().some(({ name }) => ['write', 'discard', 'native'].includes(name)), false);
+});
+
+test('manual inclusion travels through validated preview and discard but is never persisted', async () => {
+  const f = fixture({ settings: configuration });
+  let discarded = false;
+  const api = { ...f.api, tabs: {
+    query: async () => [{ ...readyTab, autoDiscardable: false, discarded }],
+    get: async () => ({ ...readyTab, autoDiscardable: false, discarded }),
+    discard: async () => { discarded = true; },
+  } };
+  const controller = createController(api, () => now);
+  assert.equal((await controller.handle({ action: 'preview' }, sender)).candidates.length, 0);
+  const view = await controller.handle({ action: 'preview', allowProtected: true }, sender);
+  assert.equal(view.candidates.length, 1);
+  const candidates = view.candidates.map(({ id: tabId, url, lastAccessed }) => ({ id: tabId, url, lastAccessed }));
+  await assert.rejects(controller.handle({ action: 'discard', candidates, allowProtected: 'yes' }, sender));
+  assert.equal(discarded, false);
+  const result = await controller.handle({ action: 'discard', candidates, allowProtected: true }, sender);
+  assert.deepEqual(result.discarded, [4]);
+  assert.deepEqual(f.stored().settings, configuration);
+  assert.equal('allowProtected' in f.stored(), false);
+});
+
 test('native snapshot is explicit, schema-checked and uses the fixed read-only protocol', async () => {
   const f = fixture();
   const data = await f.controller.handle({ action: 'snapshot' }, sender);

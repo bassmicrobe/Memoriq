@@ -6,102 +6,143 @@ struct DashboardView: View {
     @ObservedObject var monitor: MemoryMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "memorychip").font(.title2).foregroundStyle(.teal)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Memoriq").font(.headline)
-                    Text("Mac全体とChromeを、軽く。").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button(action: monitor.refresh) { Image(systemName: "arrow.clockwise") }
-                    .disabled(monitor.isRefreshing).help("使用量を更新")
-            }
+        VStack(alignment: .leading, spacing: 20) {
+            header
             if let snapshot = monitor.snapshot {
                 summary(snapshot)
-                HStack {
-                    Text("アプリ別の使用量").font(.headline)
-                    Spacer()
-                    Text("30秒ごとに更新").font(.caption).foregroundStyle(.secondary)
-                }
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(snapshot.apps.prefix(18)) { app in
-                            appRow(app)
-                            Divider()
-                        }
-                    }
-                }.frame(height: 310)
-                Text("圧縮分を含むメモリ負担の目安です。共有領域などがあるため、合計はMac全体の使用量とは一致しません。")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if snapshot.unreadableProcessCount > 0 {
-                    Text("読み取れないプロセス: \(snapshot.unreadableProcessCount)件（一部は表示対象外）")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                applications(snapshot)
             } else {
-                ProgressView("メモリを確認中…").frame(maxWidth: .infinity)
+                ProgressView("メモリを確認中…")
+                    .tint(NeonTheme.lime)
+                    .frame(maxWidth: .infinity, minHeight: 180)
             }
             if let message = monitor.message {
-                Text(message).font(.caption).foregroundStyle(.secondary)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Button(action: monitor.openExtension) {
-                    Label("Chromeのタブ整理を開く", systemImage: "rectangle.on.rectangle")
-                        .frame(maxWidth: .infinity)
-                }.buttonStyle(.borderedProminent).tint(.teal)
-                Text("拡張で許可したサイトの未使用タブを解放します。他のアプリは使用量の確認と通常終了に対応します。")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(NeonTheme.amber)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
-                Button("拡張フォルダ", action: monitor.revealExtension)
-                Spacer()
-                Button("Memoriqを終了") { NSApplication.shared.terminate(nil) }
-            }.font(.caption)
+            extensionAction
+            footer
         }
-        .padding(20)
-        .frame(width: 430)
+        .padding(24)
+        .frame(width: 490)
+        .background(NeonTheme.background)
+        .foregroundStyle(NeonTheme.text)
+        .tint(NeonTheme.lime)
+        .preferredColorScheme(.dark)
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            MemoriqMark()
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MEMORY CONTROL")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .tracking(2)
+                    .foregroundStyle(NeonTheme.muted)
+                Text("Memoriq")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .tracking(-1)
+            }
+            Spacer()
+            Button(action: monitor.refresh) {
+                Image(systemName: "arrow.clockwise").frame(width: 16, height: 16)
+            }
+            .buttonStyle(NeonButtonStyle(compact: true))
+            .disabled(monitor.isRefreshing)
+            .help("使用量を更新")
+            .accessibilityLabel("使用量を更新")
+        }
     }
 
     private func summary(_ snapshot: MemorySnapshot) -> some View {
-        HStack(alignment: .top) {
-            metric("メモリ圧迫", pressureLabel(snapshot.memory.pressure), color: pressureColor(snapshot.memory.pressure))
-            Spacer()
-            metric("スワップ", bytes(snapshot.memory.swapUsedBytes))
-            Spacer()
-            metric("搭載RAM", bytes(snapshot.memory.totalBytes))
+        HStack(spacing: 0) {
+            metric("メモリ圧迫", pressureLabel(snapshot.memory.pressure),
+                   color: NeonTheme.pressureColor(snapshot.memory.pressure))
+            Rectangle().fill(NeonTheme.line).frame(width: 1, height: 40).padding(.horizontal, 18)
+            metric("スワップ", NeonTheme.bytes(snapshot.memory.swapUsedBytes), color: NeonTheme.lilac)
+            Spacer(minLength: 10)
+            metric("搭載RAM", NeonTheme.bytes(snapshot.memory.totalBytes))
         }
-        .padding(14)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(NeonTheme.surface, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(NeonTheme.line))
     }
 
-    private func metric(_ title: String, _ value: String, color: Color = .primary) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.headline).foregroundStyle(color)
+    private func metric(_ title: String, _ value: String, color: Color = NeonTheme.text) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 10)).foregroundStyle(NeonTheme.muted)
+            Text(value)
+                .font(.system(size: 19, weight: .medium, design: .monospaced))
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
     }
 
-    private func appRow(_ app: AppMemory) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(app.name).lineLimit(1).font(.system(size: 13, weight: .medium))
-                Text("\(app.processCount)プロセス").font(.caption2).foregroundStyle(.secondary)
+    private func applications(_ snapshot: MemorySnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("アプリ別の使用量").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                HStack(spacing: 5) {
+                    Circle().fill(NeonTheme.lime).frame(width: 5, height: 5)
+                    Text("30秒ごとに更新").font(.system(size: 10))
+                }
+                .foregroundStyle(NeonTheme.muted)
             }
-            Spacer(minLength: 8)
-            Text(bytes(app.footprintBytes)).monospacedDigit().font(.system(size: 13))
-            if app.protected {
-                Image(systemName: "lock.shield").foregroundStyle(.secondary)
-                    .frame(width: 55).help("作業を守るため、このアプリから終了しません")
-            } else {
-                Button("終了…") { monitor.requestQuit(app) }.font(.caption).frame(width: 55)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(snapshot.apps.prefix(18).enumerated()), id: \.element.id) { index, app in
+                        AppMemoryRow(app: app, rank: index + 1) { monitor.requestQuit(app) }
+                    }
+                }
             }
-        }.padding(.vertical, 9)
+            .frame(height: 295)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("圧縮分を含むメモリ負担の目安です。共有領域などがあるため、合計はMac全体の使用量とは一致しません。")
+                if snapshot.unreadableProcessCount > 0 {
+                    Text("読み取れないプロセス: \(snapshot.unreadableProcessCount)件（一部は表示対象外）")
+                }
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(NeonTheme.muted)
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
-    private func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .binary)
+    private var extensionAction: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Button(action: monitor.openExtension) {
+                HStack {
+                    Image(systemName: "rectangle.on.rectangle")
+                    Text("Chromeのタブを管理")
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(NeonButtonStyle(prominent: true))
+            Text("許可した未使用タブを休止。他のアプリは使用量の確認と通常終了に対応します。")
+                .font(.system(size: 10))
+                .foregroundStyle(NeonTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var footer: some View {
+        HStack {
+            Button("拡張フォルダ", action: monitor.revealExtension)
+            Spacer()
+            Button("Memoriqを終了") { NSApplication.shared.terminate(nil) }
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 10))
+        .foregroundStyle(NeonTheme.muted)
+        .padding(.top, 12)
+        .overlay(alignment: .top) { Rectangle().fill(NeonTheme.line).frame(height: 1) }
     }
 
     private func pressureLabel(_ value: String) -> String {
@@ -110,15 +151,6 @@ struct DashboardView: View {
         case "warning": "高め"
         case "critical": "非常に高い"
         default: "取得不可"
-        }
-    }
-
-    private func pressureColor(_ value: String) -> Color {
-        switch value {
-        case "normal": .teal
-        case "warning": .orange
-        case "critical": .red
-        default: .secondary
         }
     }
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, selectCandidates, validateRequest, validateSettings, validateSnapshot } from './policy.mjs';
+import { DEFAULT_SETTINGS, evaluateTab, selectCandidates, validateRequest, validateSettings, validateSnapshot } from './policy.mjs';
 import { discardCandidates } from './operations.mjs';
 
 export const ALARM_NAME = 'memory-harbor-idle-check';
@@ -22,22 +22,26 @@ export function createController(api, now = () => Date.now()) {
     }
   }
 
-  async function preview() {
+  async function preview(allowProtected = false) {
     const configuration = await settings();
     const tabs = await api.tabs.query({});
-    const candidates = selectCandidates(tabs, configuration, now());
+    const candidates = selectCandidates(tabs, configuration, now(), { allowProtected });
+    const blockedTabs = tabs
+      .map((tab) => ({ tab, decision: evaluateTab(tab, configuration, now(), { allowProtected }) }))
+      .filter(({ decision }) => !decision.eligible)
+      .map(({ tab, decision }) => ({ id: tab.id, title: typeof tab.title === 'string' ? tab.title.slice(0, 200) : 'タイトル不明', reason: decision.reason }));
     const stored = await api.storage.local.get(['lastRun', 'lastError']);
-    return { settings: configuration, candidates, totalTabs: tabs.length, discardedTabs: tabs.filter((tab) => tab.discarded === true).length, lastRun: stored.lastRun ?? null, lastError: typeof stored.lastError === 'string' ? stored.lastError : null };
+    return { settings: configuration, candidates, blockedTabs, totalTabs: tabs.length, discardedTabs: tabs.filter((tab) => tab.discarded === true).length, lastRun: stored.lastRun ?? null, lastError: typeof stored.lastError === 'string' ? stored.lastError : null };
   }
 
-  function execute(candidates, automatic) {
+  function execute(candidates, automatic, allowProtected = false) {
     const task = async () => {
       const result = await discardCandidates(candidates, {
         getSettings: settings,
         getTab: (id) => api.tabs.get(id),
         discardTab: (id) => api.tabs.discard(id),
         now,
-      }, { automatic });
+      }, { automatic, allowProtected });
       await api.storage.local.set({ lastRun: { timestamp: new Date(now()).toISOString(), automatic, discardedCount: result.discarded.length, skippedCount: result.skipped.length, failedCount: result.failed.length }, lastError: null });
       return result;
     };
@@ -53,7 +57,7 @@ export function createController(api, now = () => Date.now()) {
     }
     const message = validateRequest(request);
     if (message.action === 'get-settings') return settings();
-    if (message.action === 'preview') return preview();
+    if (message.action === 'preview') return preview(message.allowProtected);
     if (message.action === 'save-settings') {
       await api.storage.local.set({ settings: message.settings, lastError: null });
       try {
@@ -66,7 +70,7 @@ export function createController(api, now = () => Date.now()) {
         return { settings: message.settings, warning };
       }
     }
-    if (message.action === 'discard') return execute(message.candidates, false);
+    if (message.action === 'discard') return execute(message.candidates, false, message.allowProtected);
     if (message.action === 'snapshot') {
       try {
         const response = await api.runtime.sendNativeMessage(NATIVE_HOST, { version: 1, action: 'snapshot' });

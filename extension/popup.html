@@ -9,7 +9,7 @@
 </head>
 <body class="popup">
   <header class="header">
-    <div><p class="eyebrow">MEMORIQ</p><h1>タブに、ひと休み。</h1></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><div><p class="eyebrow">MEMORY CONTROL</p><h1>Memoriq</h1></div></div>
     <button id="settings" class="quiet" type="button">設定</button>
   </header>
   <main>
@@ -19,13 +19,15 @@
       <div><strong id="automatic">OFF</strong><span>自動休止</span></div>
     </section>
     <section class="section">
-      <div class="section-heading"><h2>今回の休止候補</h2><button id="refresh" type="button" class="quiet">一覧を更新</button></div>
+      <div class="section-heading"><h2>タブ管理</h2><button id="refresh" type="button" class="quiet">一覧を更新</button></div>
       <p id="policy-summary" class="muted">許可したサイトの未使用タブだけを表示します。</p>
+      <label class="manual-option"><input id="manual-protected" type="checkbox"><span><strong>自動休止の保護タブも表示</strong><small>今回の手動操作だけに適用します</small></span></label>
       <div id="candidates" class="candidate-list"><p class="empty">読み込み中です。</p></div>
+      <details><summary>対象外の理由</summary><ul id="blocked-tabs" class="hint"></ul></details>
       <button id="discard" type="button" class="primary full" disabled>選択したタブを休止する</button>
       <p class="hint">一度に最大3件。休止したタブを選ぶと再読み込みします。</p>
     </section>
-    <aside class="notice">入力途中のフォームや、ミュート中の会議などは確実に検出できません。再読み込みしても問題ないサイトだけを設定で許可してください。</aside>
+    <aside class="notice"><strong>休止前に確認</strong>未保存の入力やミュート中の会議は検出できない場合があります。再読み込みしてよいサイトだけを許可してください。</aside>
     <p id="status" class="status" role="status" aria-live="polite"></p>
     <section class="section native-section">
       <div class="section-heading"><h2>Mac全体のメモリ</h2><button id="snapshot" type="button" class="quiet">計測する</button></div>
