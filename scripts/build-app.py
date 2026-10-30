@@ -18,6 +18,8 @@ def main():
     extension_id = (ROOT / 'extension/extension-id.txt').read_text().strip()
     if not re.fullmatch('[a-p]{32}', extension_id):
         raise ValueError('Invalid extension ID')
+    if (ROOT / 'extension/LICENSE').read_bytes() != (ROOT / 'LICENSE').read_bytes():
+        raise ValueError('Extension LICENSE must match the project LICENSE')
     output = args.output.expanduser().resolve()
     if output.exists() and not (output / 'Contents/Info.plist').exists():
         raise ValueError('Refusing to replace a path that is not an app bundle')
@@ -37,12 +39,14 @@ def main():
         shutil.copytree(ROOT / 'extension', resources / 'extension',
                         ignore=shutil.ignore_patterns('tests', 'test-results'))
         shutil.copyfile(ROOT / 'README.md', resources / 'README.md')
+        for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
+            shutil.copyfile(ROOT / name, resources / name)
         shutil.copytree(ROOT / 'docs', resources / 'docs', copy_function=shutil.copyfile)
         info = {
             'CFBundleName': 'Memoriq', 'CFBundleDisplayName': 'Memoriq',
             'CFBundleIdentifier': 'jp.local.memoryharbor', 'CFBundleExecutable': 'MemoryHarbor',
             'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
-            'CFBundleShortVersionString': '0.1.0', 'LSMinimumSystemVersion': '13.0',
+            'CFBundleShortVersionString': '0.2.0', 'LSMinimumSystemVersion': '13.0',
             'LSUIElement': True, 'NSHighResolutionCapable': True,
             'MemoryHarborExtensionID': extension_id,
         }

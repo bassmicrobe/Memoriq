@@ -1,6 +1,6 @@
 import { evaluateTab, MAX_BATCH_SIZE, validateSettings } from './policy.mjs';
 
-export async function discardCandidates(candidates, api, { automatic = false, allowProtected = false } = {}) {
+export async function discardCandidates(candidates, api, { automatic = false, allowProtected = false, sweep = false } = {}) {
   if (!Array.isArray(candidates) || candidates.length > MAX_BATCH_SIZE) throw new Error('休止候補が上限を超えています。');
   return candidates.reduce(async (pending, expected) => {
     const result = await pending;
@@ -8,9 +8,20 @@ export async function discardCandidates(candidates, api, { automatic = false, al
       const settings = validateSettings(await api.getSettings());
       const tab = await api.getTab(expected.id);
       const changed = tab.url !== expected.url || tab.lastAccessed !== expected.lastAccessed;
-      const decision = evaluateTab(tab, settings, api.now(), { allowProtected: !automatic && allowProtected });
+      const options = { allowProtected: !automatic && allowProtected, sweep: !automatic && sweep };
+      const decision = evaluateTab(tab, settings, api.now(), options);
       if ((automatic && !settings.automatic) || changed || !decision.eligible) {
         return { ...result, skipped: [...result.skipped, { id: expected.id, reason: changed ? 'changed' : decision.reason ?? 'automatic-disabled' }] };
+      }
+      if (options.sweep || settings.allSites) {
+        const reason = api.checkPage ? await api.checkPage(tab) : 'page-unverified';
+        if (reason !== null) return { ...result, skipped: [...result.skipped, { id: expected.id, reason }] };
+        const latestSettings = validateSettings(await api.getSettings());
+        const latest = await api.getTab(expected.id);
+        const latestDecision = evaluateTab(latest, latestSettings, api.now(), options);
+        if ((automatic && !latestSettings.automatic) || latest.url !== expected.url || latest.lastAccessed !== expected.lastAccessed || !latestDecision.eligible) {
+          return { ...result, skipped: [...result.skipped, { id: expected.id, reason: 'changed' }] };
+        }
       }
       const response = await api.discardTab(expected.id);
       const target = response === undefined ? { id: expected.id } : response;

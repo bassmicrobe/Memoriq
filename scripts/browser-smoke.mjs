@@ -99,9 +99,22 @@ try {
   await optionsPage.locator('#save').click();
   await optionsPage.getByRole('status').filter({ hasText: '保存しました' }).waitFor();
   const settings = await api(optionsPage, 'get-settings');
-  assert.deepEqual(settings, { automatic: false, minimumIdleMinutes: 5, allowedHosts: ['localhost'], excludedHosts: [] });
+  assert.deepEqual(settings, { automatic: false, allSites: false, minimumIdleMinutes: 5, allowedHosts: ['localhost'], excludedHosts: [] });
   await optionsPage.screenshot({ path: join(results, 'options.png'), fullPage: true });
   await record('settings-saved-via-ui', { settings });
+
+  await optionsPage.getByRole('link', { name: 'ライセンス・OSS', exact: true }).click();
+  await optionsPage.waitForURL(`${extensionUrl}/licenses.html`);
+  assert.equal(await optionsPage.getByRole('heading', { name: 'Drowzy', exact: true }).count(), 1);
+  await optionsPage.getByRole('link', { name: '著作権表示・ライセンス全文', exact: true }).click();
+  await optionsPage.waitForURL(`${extensionUrl}/vendor/drowzy-LICENSE.txt`);
+  const ossLicense = await optionsPage.locator('body').innerText();
+  assert.ok(ossLicense.includes('Copyright (c) 2026 ml3dev'));
+  assert.ok(ossLicense.includes('THE SOFTWARE IS PROVIDED "AS IS"'));
+  await optionsPage.goBack();
+  await optionsPage.getByRole('link', { name: '設定へ戻る', exact: false }).click();
+  await optionsPage.waitForURL(`${extensionUrl}/options.html`);
+  await record('local-oss-license-accessible-via-ui');
 
   for (const width of [320, 390]) {
     await optionsPage.setViewportSize({ width, height: 850 });
@@ -131,6 +144,24 @@ try {
   await optionsPage.locator('#snapshot').click();
   await optionsPage.locator('#native-data').filter({ hasText: '物理メモリ' }).waitFor();
   await optionsPage.locator('body').screenshot({ path: join(results, 'popup-before.png') });
+
+  if (uiOnly) {
+    const entry = { id: 'backup-fixture', tabId: 99999999, url: 'https://example.com/?a=1&b=2', title: '<script>draft</script>', savedAt: Date.now() };
+    await worker.evaluate((entry) => chrome.storage.local.set({ archive: [entry] }), entry);
+    await optionsPage.locator('#refresh').click();
+    await optionsPage.locator('#archive-count').filter({ hasText: '退避 1枚' }).waitFor();
+    await optionsPage.locator('#archive-panel summary').click();
+    assert.equal(await optionsPage.locator('#archived-tabs script').count(), 0);
+    const downloadPromise = optionsPage.waitForEvent('download');
+    await optionsPage.locator('#export-archive').click();
+    const download = await downloadPromise;
+    await download.saveAs(join(results, 'backup.html'));
+    const content = await readFile(join(results, 'backup.html'), 'utf8');
+    assert.ok(content.includes('&lt;script&gt;draft&lt;/script&gt;'));
+    assert.ok(content.includes('a=1&amp;b=2'));
+    await record('archive-export-safe-local-download');
+    await worker.evaluate(() => chrome.storage.local.set({ archive: [] }));
+  }
 
   if (!uiOnly) {
     if (clockShiftMs > 0) {

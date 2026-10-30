@@ -153,6 +153,29 @@ test('native snapshot is explicit, schema-checked and uses the fixed read-only p
   assert.equal((await missing.handle({ action: 'preview' }, sender)).totalTabs, 1);
 });
 
+test('all-sites preview and automatic work require a clean page check and granted permission', async () => {
+  const f = fixture({ settings: { ...configuration, allSites: true, allowedHosts: [], automatic: true } });
+  const denied = await f.controller.handle({ action: 'preview' }, sender);
+  assert.equal(denied.candidates.length, 0);
+  assert.equal(denied.blockedTabs[0].reason, 'page-unverified');
+  await f.controller.onAlarm({ name: ALARM_NAME });
+  assert.equal(f.calls().some(({ name }) => name === 'discard'), false);
+  const api = { ...f.api, permissions: { contains: async () => true }, scripting: { executeScript: async () => [{ frameId: 0, result: { reason: null, url: readyTab.url, childFrames: 0 } }] } };
+  const controller = createController(api, () => now);
+  assert.equal((await controller.handle({ action: 'preview' }, sender)).candidates.length, 1);
+  await controller.onAlarm({ name: ALARM_NAME });
+  assert.equal(f.calls().filter(({ name }) => name === 'discard').length, 1);
+  assert.equal(f.stored().lastRun.automatic, true);
+});
+
+test('archive endpoints reject untrusted senders without reading, writing or closing tabs', async () => {
+  for (const action of ['archive', 'restore-archive', 'get-archive']) {
+    const f = fixture({ settings: configuration });
+    await assert.rejects(f.controller.handle({ action, candidates: [readyTab] }, { ...sender, url: 'https://example.com/' }));
+    assert.deepEqual(f.calls(), []);
+  }
+});
+
 test('alarm installation failure is surfaced without pretending settings failed to save', async () => {
   const f = fixture();
   const api = { ...f.api, alarms: { ...f.api.alarms, create: async () => { throw new Error('Alarm unavailable'); } } };

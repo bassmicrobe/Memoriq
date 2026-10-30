@@ -21,19 +21,27 @@
     <section class="section">
       <div class="section-heading"><h2>タブ管理</h2><button id="refresh" type="button" class="quiet">一覧を更新</button></div>
       <p id="policy-summary" class="muted">許可したサイトの未使用タブだけを表示します。</p>
+      <button id="sweep" class="sweep-button full" type="button">保護タブも含めてまとめて整理 ↗</button>
+      <p id="sweep-note" class="hint" hidden>全サイト・待ち時間なし。自動休止の保護タブも今回だけ検査します。入力・再生状態を確認した候補から、整理するタブを選んでください。</p>
       <label class="manual-option"><input id="manual-protected" type="checkbox"><span><strong>自動休止の保護タブも表示</strong><small>今回の手動操作だけに適用します</small></span></label>
       <div id="candidates" class="candidate-list"><p class="empty">読み込み中です。</p></div>
       <details><summary>対象外の理由</summary><ul id="blocked-tabs" class="hint"></ul></details>
+      <button id="select-all" class="quiet" type="button">候補をすべて選択</button>
       <button id="discard" type="button" class="primary full" disabled>選択したタブを休止する</button>
-      <p class="hint">一度に最大3件。休止したタブを選ぶと再読み込みします。</p>
+      <button id="archive" type="button" class="sweep-button full" disabled>選択したタブを退避して閉じる</button>
+      <p class="hint">退避はURLとタイトルを端末内に保存してタブを閉じます。入力内容や戻る履歴は復元しません。</p>
+      <div class="section-heading"><span id="archive-count" class="muted">退避 0枚</span><button id="restore" class="quiet" type="button" disabled>1枚戻す</button></div>
+      <details id="archive-panel" hidden><summary>退避したタブを選んで戻す</summary><ul id="archived-tabs" class="app-list"></ul><button id="export-archive" class="quiet" type="button">バックアップを保存</button><p class="hint">URLを含むHTMLファイルを端末内へ保存します。Chromeのブックマークとして読み込めます。</p></details>
+      <p class="hint">一度に最大50件。休止したタブを選ぶと再読み込みします。</p>
+      <p id="measurement" class="hint" role="status" aria-live="polite"></p>
     </section>
     <aside class="notice"><strong>休止前に確認</strong>未保存の入力やミュート中の会議は検出できない場合があります。再読み込みしてよいサイトだけを許可してください。</aside>
     <p id="status" class="status" role="status" aria-live="polite"></p>
     <section class="section native-section">
       <div class="section-heading"><h2>Mac全体のメモリ</h2><button id="snapshot" type="button" class="quiet">計測する</button></div>
-      <div id="native-data"><p class="muted">Macアプリ連携は任意です。「計測する」を押したときだけ取得します。</p></div>
+      <div id="native-data"><p class="muted">Macアプリ連携は任意です。計測ボタンと手動整理の前後に取得します。</p></div>
     </section>
-    <footer>この拡張は外部サーバーにデータを送信しません。</footer>
+    <footer>この拡張は外部サーバーにデータを送信しません。<br><a href="licenses.html" class="quiet nav-link">ライセンス・OSS</a></footer>
   </main>
 </body>
 </html>

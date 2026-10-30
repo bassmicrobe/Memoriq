@@ -23,6 +23,9 @@ struct DashboardView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             extensionAction
+            if !monitor.restSession.apps.isEmpty {
+                RestedAppsView(apps: monitor.restSession.apps, reopen: monitor.reopen)
+            }
             footer
         }
         .padding(24)
@@ -97,10 +100,11 @@ struct DashboardView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(snapshot.apps.prefix(18).enumerated()), id: \.element.id) { index, app in
                         AppMemoryRow(app: app, rank: index + 1) { monitor.requestQuit(app) }
+                            .disabled(monitor.restingPaths.contains(app.bundlePath))
                     }
                 }
             }
-            .frame(height: 295)
+            .frame(height: monitor.restSession.apps.isEmpty ? 295 : 160)
             VStack(alignment: .leading, spacing: 5) {
                 Text("圧縮分を含むメモリ負担の目安です。共有領域などがあるため、合計はMac全体の使用量とは一致しません。")
                 if snapshot.unreadableProcessCount > 0 {
@@ -125,7 +129,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(NeonButtonStyle(prominent: true))
-            Text("許可した未使用タブを休止。他のアプリは使用量の確認と通常終了に対応します。")
+            Text("Chromeはタブを休止。他のアプリは「休止…」で通常終了し、あとで再起動できます。")
                 .font(.system(size: 10))
                 .foregroundStyle(NeonTheme.muted)
                 .fixedSize(horizontal: false, vertical: true)

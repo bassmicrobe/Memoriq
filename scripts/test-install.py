@@ -29,6 +29,19 @@ def main():
         snapshot = subprocess.run([manifest['path'], '--snapshot'], capture_output=True, text=True, timeout=15)
         assert snapshot.returncode == 0 and json.loads(snapshot.stdout)['memory']['totalBytes'] > 0
 
+        resources = app / 'Contents/Resources'
+        legal_files = {
+            'LICENSE': ROOT / 'LICENSE',
+            'THIRD_PARTY_NOTICES.md': ROOT / 'THIRD_PARTY_NOTICES.md',
+            'extension/LICENSE': ROOT / 'LICENSE',
+            'extension/THIRD_PARTY_NOTICES.md': ROOT / 'extension/THIRD_PARTY_NOTICES.md',
+            'extension/vendor/drowzy-LICENSE.txt': ROOT / 'extension/vendor/drowzy-LICENSE.txt',
+        }
+        for relative, source in legal_files.items():
+            packaged = resources / relative
+            assert packaged.is_file(), f'Missing license or notice in installed app: {relative}'
+            assert packaged.read_bytes() == source.read_bytes(), f'License or notice changed: {relative}'
+
         marker = app / 'must-remain.txt'
         marker.write_text('protected')
         manifest_path.write_text(json.dumps({'name': 'another.host'}))
@@ -48,7 +61,7 @@ def main():
         assert marker.read_text() == 'protected'
         with info_path.open('rb') as handle:
             assert plistlib.load(handle)['CFBundleIdentifier'] == 'another.app'
-    print('PASS: signed install, real snapshot, scoped manifest, foreign host/app preserved')
+    print('PASS: signed install, real snapshot, license notices preserved, scoped manifest, foreign host/app preserved')
 
 
 if __name__ == '__main__':

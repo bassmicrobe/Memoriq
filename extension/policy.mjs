@@ -1,6 +1,7 @@
-export const MAX_BATCH_SIZE = 3;
+export const MAX_BATCH_SIZE = 50;
 export const DEFAULT_SETTINGS = Object.freeze({
   automatic: false,
+  allSites: false,
   minimumIdleMinutes: 30,
   allowedHosts: Object.freeze([]),
   excludedHosts: Object.freeze([]),
@@ -30,11 +31,13 @@ function hosts(value) {
 }
 
 export function validateSettings(value) {
-  knownKeys(value, ['automatic', 'minimumIdleMinutes', 'allowedHosts', 'excludedHosts']);
+  knownKeys(value, ['automatic', 'allSites', 'minimumIdleMinutes', 'allowedHosts', 'excludedHosts']);
   if (typeof value.automatic !== 'boolean') throw new Error('自動休止の設定が正しくありません。');
+  if (value.allSites !== undefined && typeof value.allSites !== 'boolean') throw new Error('対象サイトの設定が正しくありません。');
   if (!integer(value.minimumIdleMinutes, 5, 1440)) throw new Error('未使用時間は5〜1440分の整数で指定してください。');
   return {
     automatic: value.automatic,
+    allSites: value.allSites ?? false,
     minimumIdleMinutes: value.minimumIdleMinutes,
     allowedHosts: hosts(value.allowedHosts),
     excludedHosts: hosts(value.excludedHosts),
@@ -51,7 +54,9 @@ function webUrl(value) {
   }
 }
 
-export function evaluateTab(tab, settings, now, { allowProtected = false } = {}) {
+const WORK_HOSTS = Object.freeze(['meet.google.com', 'teams.microsoft.com', 'teams.live.com', 'zoom.us', 'docs.google.com', 'mail.google.com', 'outlook.office.com', 'figma.com', 'notion.so']);
+
+export function evaluateTab(tab, settings, now, { allowProtected = false, sweep = false } = {}) {
   const deny = (reason) => ({ eligible: false, reason });
   if (!record(tab) || !integer(tab.id)) return deny('unknown');
   if (tab.active !== false || tab.highlighted === true) return deny('active');
@@ -65,10 +70,11 @@ export function evaluateTab(tab, settings, now, { allowProtected = false } = {})
   const url = webUrl(tab.url);
   if (!url) return deny('unsupported-url');
   if (settings.excludedHosts.includes(url.hostname)) return deny('excluded');
-  if (!settings.allowedHosts.includes(url.hostname)) return deny('not-allowed');
+  if ((sweep || settings.allSites) && WORK_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) return deny('work-site');
+  if (!sweep && !settings.allSites && !settings.allowedHosts.includes(url.hostname)) return deny('not-allowed');
   if (!Number.isFinite(tab.lastAccessed) || tab.lastAccessed < 0 || tab.lastAccessed > now) return deny('unknown-access');
   const idleMinutes = (now - tab.lastAccessed) / 60_000;
-  if (idleMinutes < settings.minimumIdleMinutes) return deny('recent');
+  if (!sweep && idleMinutes < settings.minimumIdleMinutes) return deny('recent');
   return { eligible: true, reason: null, idleMinutes, hostname: url.hostname };
 }
 
@@ -93,11 +99,17 @@ function candidate(value) {
 export function validateRequest(value) {
   if (!record(value)) throw new Error('操作の形式が正しくありません。');
   if (value.action === 'preview') {
-    knownKeys(value, ['action', 'allowProtected']);
+    knownKeys(value, ['action', 'allowProtected', 'sweep']);
+    if (value.sweep !== undefined && typeof value.sweep !== 'boolean') throw new Error('一括整理の指定が正しくありません。');
     if (value.allowProtected !== undefined && typeof value.allowProtected !== 'boolean') throw new Error('手動休止の指定が正しくありません。');
-    return { action: value.action, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }) };
+    return { action: value.action, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }), ...(value.sweep === undefined ? {} : { sweep: value.sweep }) };
   }
-  if (['get-settings', 'snapshot'].includes(value.action)) {
+  if (value.action === 'restore-archive') {
+    knownKeys(value, ['action', 'entryId']);
+    if (value.entryId !== undefined && (typeof value.entryId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(value.entryId))) throw new Error('復元するタブの指定が正しくありません。');
+    return { action: value.action, ...(value.entryId === undefined ? {} : { entryId: value.entryId }) };
+  }
+  if (['get-settings', 'snapshot', 'get-archive'].includes(value.action)) {
     knownKeys(value, ['action']);
     return { action: value.action };
   }
@@ -105,13 +117,14 @@ export function validateRequest(value) {
     knownKeys(value, ['action', 'settings']);
     return { action: value.action, settings: validateSettings(value.settings) };
   }
-  if (value.action === 'discard') {
-    knownKeys(value, ['action', 'candidates', 'allowProtected']);
+  if (['discard', 'archive'].includes(value.action)) {
+    knownKeys(value, ['action', 'candidates', 'allowProtected', 'sweep']);
+    if (value.sweep !== undefined && typeof value.sweep !== 'boolean') throw new Error('一括整理の指定が正しくありません。');
     if (value.allowProtected !== undefined && typeof value.allowProtected !== 'boolean') throw new Error('手動休止の指定が正しくありません。');
-    if (!Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > MAX_BATCH_SIZE) throw new Error('一度に休止できるのは1〜3件です。');
+    if (!Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > MAX_BATCH_SIZE) throw new Error(`一度に休止できるのは1〜${MAX_BATCH_SIZE}件です。`);
     const candidates = value.candidates.map(candidate);
     if (new Set(candidates.map(({ id }) => id)).size !== candidates.length) throw new Error('休止候補が重複しています。');
-    return { action: value.action, candidates, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }) };
+    return { action: value.action, candidates, ...(value.allowProtected === undefined ? {} : { allowProtected: value.allowProtected }), ...(value.sweep === undefined ? {} : { sweep: value.sweep }) };
   }
   throw new Error('この操作には対応していません。');
 }

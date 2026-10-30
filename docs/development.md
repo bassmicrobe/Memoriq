@@ -114,3 +114,15 @@ node scripts/browser-discard-probe.mjs
 このMacではPlaywrightが対象ページにもCDP接続した状態で、Chrome for Testing 147/151の休止時にブラウザがSIGSEGVで終了しました。拡張ページとworkerだけにCDP接続する上記の方式では、Chrome for Testing 151.0.7922.34で休止・復帰が成功しています。起動条件も異なるため、デバッガー接続だけが原因とは断定していません。通常の検証には既定のUI確認と上記の休止・復帰確認を使い、Playwrightで対象に接続したまま破棄する方法は推奨しません。
 
 Mac側は、ダッシュボードの表示、メニューバーからの再表示、終了確認のキャンセル、アプリ側の保存確認などを別途確認します。ユーザーが作業中のアプリを検証目的で終了しないでください。
+
+### 一括整理・退避の検証
+
+```sh
+BULK_PROBE=1 BULK_ACTION=archive SMOKE_HEADED=1 \
+CHROMIUM_EXECUTABLE_PATH=/absolute/path/to/chrome-for-testing \
+node scripts/browser-discard-probe.mjs
+```
+
+`BULK_ACTION=archive`を省くと通常の一括休止を検証します。6枚の別サイトのローカルページへ各64 MiBを確保し、7枚目には入力途中のフォームを置きます。一時プロファイルだけでテスト用ドメインの名前解決とサイトアクセス権限を設定します。通常のプロファイルや配布するManifestに全サイトの必須権限を追加しません。
+
+実UIから候補表示・選択・休止または退避を行い、入力の保持、実Native Messagingによる前後各5回の計測、復元を検証します。結果は`test-results/bulk-probe/`または`test-results/bulk-archive-probe/`です。測定対象のブラウザバンドルを共有する別テストとは同時実行しないでください。

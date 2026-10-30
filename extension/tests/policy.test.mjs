@@ -42,9 +42,9 @@ test('settings are validated, normalized and never mutate the caller', () => {
   }
 });
 
-test('candidate order is oldest first, bounded to three, without reordering input', () => {
+test('candidate order is oldest first without reordering input', () => {
   const input = [1, 2, 3, 4].map((id) => tab({ id, lastAccessed: now - id * 3_600_000 }));
-  assert.deepEqual(selectCandidates(input, settings, now).map(({ id }) => id), [4, 3, 2]);
+  assert.deepEqual(selectCandidates(input, settings, now).map(({ id }) => id), [4, 3, 2, 1]);
   assert.deepEqual(input.map(({ id }) => id), [1, 2, 3, 4]);
 });
 

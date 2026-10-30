@@ -36,7 +36,7 @@ struct AppMemoryRow: View {
                         .help("作業を守るため、このアプリから終了しません")
                         .accessibilityLabel("終了から保護")
                 } else {
-                    Button("終了…", action: onQuit)
+                    Button("休止…", action: onQuit)
                         .buttonStyle(NeonButtonStyle(compact: true))
                 }
             }

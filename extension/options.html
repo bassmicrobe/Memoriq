@@ -17,17 +17,18 @@
     <form id="settings-form">
       <fieldset id="fields" disabled>
         <label class="toggle"><input id="automatic" type="checkbox"><span><strong>自動休止を有効にする</strong><small>初期設定はOFF。ONにすると約1分ごとに候補を確認します。</small></span></label>
+        <label class="toggle scope-toggle"><input id="all-sites" type="checkbox"><span><strong>許可サイト以外の未使用タブも整理</strong><small>入力・再生を確認するため、初回のみサイトへのアクセス許可を求めます。除外サイトと会議・編集用の主要サイトは保護します。</small></span></label>
         <label class="field" for="idle">休止までの未使用時間<span class="input-with-unit"><input id="idle" type="number" min="5" max="1440" step="1" required><span>分</span></span><small>手動と自動の両方に適用。5〜1440分。</small></label>
         <div class="host-columns">
           <label class="field" for="allowed"><span>休止を許可するサイト</span><textarea id="allowed" rows="7" placeholder="example.com&#10;docs.example.com" spellcheck="false" autocomplete="off"></textarea><small>ホスト名を1行に1つ。URLや * は不可。サブドメインは別々に追加します。</small></label>
           <label class="field" for="excluded"><span>必ず除外するサイト</span><textarea id="excluded" rows="7" placeholder="meeting.example.com" spellcheck="false" autocomplete="off"></textarea><small>除外が優先されます。ここでの除外は、この拡張による休止だけに適用します。</small></label>
         </div>
-        <p class="hint">アクティブ・選択中・固定・音声再生中・読み込み中・自動破棄不可・シークレット・最終アクセス不明のタブは対象外。一度に最大3件を処理します。</p>
+        <p class="hint">アクティブ・選択中・固定・音声再生中・読み込み中・自動破棄不可・シークレット・最終アクセス不明のタブは対象外。一度に最大50件を順番に処理します。全サイトモードでは入力状態を確認できないページも保護します。</p>
         <button id="save" class="primary" type="submit">設定を保存</button>
       </fieldset>
     </form>
     <p id="status" class="status" role="status" aria-live="polite"></p>
-    <footer>設定はこのChromeプロファイル内に保存します。外部通信・タブ本文の読み取りは行いません。Macアプリ連携がなくても利用できます。</footer>
+    <footer>設定はこのChromeプロファイル内に保存します。全サイトモードでは入力・再生状態を端末内で確認します。入力内容の保存・外部送信は行いません。Macアプリ連携がなくても利用できます。<br><a href="licenses.html" class="quiet nav-link">ライセンス・OSS</a></footer>
   </main>
 </body>
 </html>

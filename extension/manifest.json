@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Memoriq",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "許可したサイトの未使用タブを休止し、Macのメモリを確認します。",
   "minimum_chrome_version": "121",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwO3o3t9+cb9VRLirsq/PMUDP8WXONTR4M9WVQn5iBeZqIe8AahSFRFlsU3pmKiz7t0wnSeP6F6gDALUbPxDwiI/Vtgz74FVtcNGJ6rQj9dn8w6rY+zob6v9Yg06FRKfDx3RuXGZtJIP4u9ytA5rcux4/EenurlfzTMojNyumOgpG4eV7fPBuvZktG3JHDW2pEJ83nTdrFegDFDmIvg1y6j+t7T4PX6esKyeEOOrfXZjGdTWOOhJWtZzJocCDEWO4B7m0ykYEDrZ6RECtYjYd+cnKRoV1WH3istOJ5g0AjVlujbmtmbpN0wubxtZAIcRyySFa+n5q0j3aCF+MRQ4aCQIDAQAB",
@@ -9,8 +9,10 @@
     "tabs",
     "storage",
     "alarms",
-    "nativeMessaging"
+    "nativeMessaging",
+    "scripting"
   ],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "worker.mjs",
     "type": "module"
